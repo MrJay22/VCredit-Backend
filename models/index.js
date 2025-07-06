@@ -15,12 +15,12 @@ const sequelize = new Sequelize(
 );
 
 // Load models
-const User = require('./user')(sequelize, DataTypes);
-const LoanTransaction = require('./loanTransaction')(sequelize, DataTypes);
-const Loan = require('./loan')(sequelize, DataTypes);
-const Repayment = require('./repayment')(sequelize, DataTypes);
-const ManualPayment = require('./manualPayment')(sequelize, DataTypes);
-const AdminSettings = require('./adminSetting')(sequelize, DataTypes);
+const User = require('./User')(sequelize, DataTypes);
+const LoanTransaction = require('./LoanTransaction')(sequelize, DataTypes);
+const Loan = require('./Loan')(sequelize, DataTypes);
+const Repayment = require('./Repayment')(sequelize, DataTypes);
+const ManualPayment = require('./ManualPayment')(sequelize, DataTypes);
+const AdminSettings = require('./AdminSetting')(sequelize, DataTypes);
 
 // Define associations
 
