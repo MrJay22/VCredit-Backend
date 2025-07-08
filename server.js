@@ -3,6 +3,9 @@ const express = require('express');
 const cors = require('cors');
 const db = require('./models'); // Sequelize models/index.js
 
+const path = require('path');
+
+
 // Route files
 const authRoutes = require('./routes/auth');
 const meRoute = require('./routes/me');
@@ -24,6 +27,9 @@ app.use((req, res, next) => {
   console.log(`${req.method} ${req.path}`);
   next();
 });
+
+// Make uploads folder publicly accessible
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Routes
 app.use('/auth', authRoutes);

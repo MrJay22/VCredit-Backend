@@ -11,13 +11,35 @@ const { Op } = require('sequelize');
 const db = require('../models');
 
 
+const multer = require('multer');
+const path = require('path');
+
+
+// Multer Storage Config
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, 'uploads'); // upload directory
+  },
+  filename: function (req, file, cb) {
+    const ext = path.extname(file.originalname);
+    const uniqueName = `${Date.now()}-${Math.round(Math.random() * 1e9)}${ext}`;
+    cb(null, uniqueName);
+  },
+});
+
+const upload = multer({ storage });
+
+
 // Apply
-router.post('/apply', authMiddleware, async (req, res) => {
+router.post('/apply', authMiddleware, upload.fields([
+  { name: 'photo', maxCount: 1 },
+  { name: 'idImage', maxCount: 1 },
+]), async (req, res) => {
   try {
-    const { personalDetails, guarantor1, guarantor2, emergencyContact, photo, idImage } = req.body;
+    const { personalDetails, guarantor1, guarantor2, emergencyContact } = JSON.parse(req.body.data);
     const userId = req.user.id;
 
-    if (!personalDetails || !guarantor1 || !guarantor2 || !emergencyContact || !photo || !idImage) {
+    if (!personalDetails || !guarantor1 || !guarantor2 || !emergencyContact || !req.files.photo || !req.files.idImage) {
       return res.status(400).json({ message: 'Incomplete application data' });
     }
 
@@ -26,13 +48,14 @@ router.post('/apply', authMiddleware, async (req, res) => {
       return res.status(400).json({ message: 'Application already submitted' });
     }
 
-    // Flatten data
+    const photoUrl = `${req.protocol}://${req.get('host')}/uploads/${req.files.photo[0].filename}`;
+    const idImageUrl = `${req.protocol}://${req.get('host')}/uploads/${req.files.idImage[0].filename}`;
+
     const loanData = {
       userId,
       name: personalDetails.name,
       phone: personalDetails.phone,
       bvn: personalDetails.nin,
-            
       bankName: personalDetails.bankName,
       accountNumber: personalDetails.accountNumber,
       accountName: personalDetails.accountName,
@@ -51,8 +74,8 @@ router.post('/apply', authMiddleware, async (req, res) => {
       emergencyContactPhone: emergencyContact.phone,
       emergencyContactRelationship: emergencyContact.relationship,
 
-      photo: photo, // already base64 or URI
-      idImage: idImage,
+      photo: photoUrl,
+      idImage: idImageUrl,
     };
 
     await db.Loan.create(loanData);
@@ -65,6 +88,31 @@ router.post('/apply', authMiddleware, async (req, res) => {
   }
 });
 
+
+// POST /api/loan/upload
+router.post('/upload', upload.fields([
+  { name: 'photo', maxCount: 1 },
+  { name: 'idImage', maxCount: 1 },
+]), (req, res) => {
+  try {
+    const photoFile = req.files['photo']?.[0];
+    const idImageFile = req.files['idImage']?.[0];
+
+    if (!photoFile || !idImageFile) {
+      return res.status(400).json({ message: 'Both images are required.' });
+    }
+
+    const baseUrl = `${req.protocol}://${req.get('host')}`;
+
+    return res.json({
+      photoUrl: `${baseUrl}/uploads/${photoFile.filename}`,
+      idImageUrl: `${baseUrl}/uploads/${idImageFile.filename}`,
+    });
+  } catch (err) {
+    console.error('Upload error:', err);
+    res.status(500).json({ message: 'Upload failed' });
+  }
+});
 
 // Initiate
 
