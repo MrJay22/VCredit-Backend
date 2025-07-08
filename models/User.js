@@ -17,7 +17,7 @@ module.exports = (sequelize, DataTypes) => {
     },
     walletBalance: {
       type: DataTypes.FLOAT,
-      defaultValue: 100000
+      defaultValue: 0
     },
     eligibleAmount: {
       type: DataTypes.FLOAT,
