@@ -31,15 +31,21 @@ const upload = multer({ storage });
 
 
 // Apply
-router.post('/apply', authMiddleware, upload.fields([
-  { name: 'photo', maxCount: 1 },
-  { name: 'idImage', maxCount: 1 },
-]), async (req, res) => {
+router.post('/apply', authMiddleware, async (req, res) => {
   try {
-    const { personalDetails, guarantor1, guarantor2, emergencyContact } = JSON.parse(req.body.data);
     const userId = req.user.id;
 
-    if (!personalDetails || !guarantor1 || !guarantor2 || !emergencyContact || !req.files.photo || !req.files.idImage) {
+    // Parse fields if needed
+    const personalDetails = JSON.parse(req.body.personalDetails);
+    const guarantor1 = JSON.parse(req.body.guarantor1);
+    const guarantor2 = JSON.parse(req.body.guarantor2);
+    const emergencyContact = JSON.parse(req.body.emergencyContact);
+
+    // Access uploaded files
+    const photoFile = req.files['photo']?.[0];
+    const idImageFile = req.files['idImage']?.[0];
+
+    if (!personalDetails || !guarantor1 || !guarantor2 || !emergencyContact || !photoFile || !idImageFile) {
       return res.status(400).json({ message: 'Incomplete application data' });
     }
 
@@ -48,9 +54,12 @@ router.post('/apply', authMiddleware, upload.fields([
       return res.status(400).json({ message: 'Application already submitted' });
     }
 
-    const photoUrl = `${req.protocol}://${req.get('host')}/uploads/${req.files.photo[0].filename}`;
-    const idImageUrl = `${req.protocol}://${req.get('host')}/uploads/${req.files.idImage[0].filename}`;
+    // Construct file URLs
+    const baseUrl = `${req.protocol}://${req.get('host')}`;
+    const photoUrl = `${baseUrl}/uploads/${photoFile.filename}`;
+    const idImageUrl = `${baseUrl}/uploads/${idImageFile.filename}`;
 
+    // Save
     const loanData = {
       userId,
       name: personalDetails.name,
@@ -87,6 +96,7 @@ router.post('/apply', authMiddleware, upload.fields([
     res.status(500).json({ message: 'Server error', error: err.message });
   }
 });
+
 
 
 // POST /api/loan/upload
