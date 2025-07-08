@@ -16,6 +16,9 @@ module.exports = (sequelize, DataTypes) => {
     bvn: {
       type: DataTypes.STRING
     },
+    occupation: {
+      type: DataTypes.STRING
+    },
      // Bank Details
     bankName: {
       type: DataTypes.STRING

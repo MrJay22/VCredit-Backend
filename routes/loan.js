@@ -31,72 +31,76 @@ const upload = multer({ storage });
 
 
 // Apply
-router.post('/apply', authMiddleware, async (req, res) => {
-  console.log('User from token:', req.user);
-  try {
-    const userId = req.user.id;
+router.post(
+  '/apply',
+  authMiddleware,
+  upload.fields([
+    { name: 'photo', maxCount: 1 },
+    { name: 'idImage', maxCount: 1 }
+  ]),
+  async (req, res) => {
+    console.log('User from token:', req.user);
+    try {
+      const userId = req.user.id;
 
-    // Parse fields if needed
-    const personalDetails = JSON.parse(req.body.personalDetails);
-    const guarantor1 = JSON.parse(req.body.guarantor1);
-    const guarantor2 = JSON.parse(req.body.guarantor2);
-    const emergencyContact = JSON.parse(req.body.emergencyContact);
+      // Parse fields
+      const personalDetails = JSON.parse(req.body.personalDetails);
+      const guarantor1 = JSON.parse(req.body.guarantor1);
+      const guarantor2 = JSON.parse(req.body.guarantor2);
+      const emergencyContact = JSON.parse(req.body.emergencyContact);
 
-    // Access uploaded files
-    const photoFile = req.files['photo']?.[0];
-    const idImageFile = req.files['idImage']?.[0];
+      // Files
+      const photoFile = req.files?.photo?.[0];
+      const idImageFile = req.files?.idImage?.[0];
 
-    if (!personalDetails || !guarantor1 || !guarantor2 || !emergencyContact || !photoFile || !idImageFile) {
-      return res.status(400).json({ message: 'Incomplete application data' });
+      if (!personalDetails || !guarantor1 || !guarantor2 || !emergencyContact || !photoFile || !idImageFile) {
+        return res.status(400).json({ message: 'Incomplete application data' });
+      }
+
+      const existing = await db.Loan.findOne({ where: { userId } });
+      if (existing) {
+        return res.status(400).json({ message: 'Application already submitted' });
+      }
+
+      const baseUrl = `${req.protocol}://${req.get('host')}`;
+      const photoUrl = `${baseUrl}/uploads/${photoFile.filename}`;
+      const idImageUrl = `${baseUrl}/uploads/${idImageFile.filename}`;
+
+      const loanData = {
+        userId,
+        name: personalDetails.name,
+        phone: personalDetails.phone,
+        bvn: personalDetails.nin,
+        occupation: personalDetails.occupation,
+        bankName: personalDetails.bankName,
+        accountNumber: personalDetails.accountNumber,
+        accountName: personalDetails.accountName,
+        dob: personalDetails.dob,
+        address: personalDetails.address,
+        guarantor1Name: guarantor1.name,
+        guarantor1Phone: guarantor1.phone,
+        guarantor1Relationship: guarantor1.relationship,
+        guarantor2Name: guarantor2.name,
+        guarantor2Phone: guarantor2.phone,
+        guarantor2Relationship: guarantor2.relationship,
+        emergencyContactName: emergencyContact.name,
+        emergencyContactPhone: emergencyContact.phone,
+        emergencyContactRelationship: emergencyContact.relationship,
+        photo: photoUrl,
+        idImage: idImageUrl,
+      };
+
+      await db.Loan.create(loanData);
+      await db.User.update({ hasApplied: true }, { where: { id: userId } });
+
+      res.status(201).json({ message: 'Loan application submitted successfully' });
+    } catch (err) {
+      console.error('Loan Apply Error:', err);
+      res.status(500).json({ message: 'Server error', error: err.message });
     }
-
-    const existing = await db.Loan.findOne({ where: { userId } });
-    if (existing) {
-      return res.status(400).json({ message: 'Application already submitted' });
-    }
-
-    // Construct file URLs
-    const baseUrl = `${req.protocol}://${req.get('host')}`;
-    const photoUrl = `${baseUrl}/uploads/${photoFile.filename}`;
-    const idImageUrl = `${baseUrl}/uploads/${idImageFile.filename}`;
-
-    // Save
-    const loanData = {
-      userId,
-      name: personalDetails.name,
-      phone: personalDetails.phone,
-      bvn: personalDetails.nin,
-      bankName: personalDetails.bankName,
-      accountNumber: personalDetails.accountNumber,
-      accountName: personalDetails.accountName,
-      dob: personalDetails.dob,
-      address: personalDetails.address,
-
-      guarantor1Name: guarantor1.name,
-      guarantor1Phone: guarantor1.phone,
-      guarantor1Relationship: guarantor1.relationship,
-
-      guarantor2Name: guarantor2.name,
-      guarantor2Phone: guarantor2.phone,
-      guarantor2Relationship: guarantor2.relationship,
-
-      emergencyContactName: emergencyContact.name,
-      emergencyContactPhone: emergencyContact.phone,
-      emergencyContactRelationship: emergencyContact.relationship,
-
-      photo: photoUrl,
-      idImage: idImageUrl,
-    };
-
-    await db.Loan.create(loanData);
-    await db.User.update({ hasApplied: true }, { where: { id: userId } });
-
-    res.status(201).json({ message: 'Loan application submitted successfully' });
-  } catch (err) {
-    console.error('Loan Apply Error:', err);
-    res.status(500).json({ message: 'Server error', error: err.message });
   }
-});
+);
+
 
 
 
