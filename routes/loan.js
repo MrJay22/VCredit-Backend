@@ -32,6 +32,7 @@ const upload = multer({ storage });
 
 // Apply
 router.post('/apply', authMiddleware, async (req, res) => {
+  console.log('User from token:', req.user);
   try {
     const userId = req.user.id;
 
