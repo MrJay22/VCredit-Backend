@@ -14,10 +14,10 @@ const db = require('../models');
 // Apply
 router.post('/apply', authMiddleware, async (req, res) => {
   try {
-    const { personalDetails, guarantor1, guarantor2, photo } = req.body;
+    const { personalDetails, guarantor1, guarantor2, emergencyContact, photo, idImage } = req.body;
     const userId = req.user.id;
 
-    if (!personalDetails || !guarantor1 || !guarantor2 || !photo) {
+    if (!personalDetails || !guarantor1 || !guarantor2 || !emergencyContact || !photo || !idImage) {
       return res.status(400).json({ message: 'Incomplete application data' });
     }
 
@@ -31,7 +31,8 @@ router.post('/apply', authMiddleware, async (req, res) => {
       userId,
       name: personalDetails.name,
       phone: personalDetails.phone,
-      nin: personalDetails.nin,      
+      bvn: personalDetails.nin,
+            
       bankName: personalDetails.bankName,
       accountNumber: personalDetails.accountNumber,
       accountName: personalDetails.accountName,
@@ -46,7 +47,12 @@ router.post('/apply', authMiddleware, async (req, res) => {
       guarantor2Phone: guarantor2.phone,
       guarantor2Relationship: guarantor2.relationship,
 
+      emergencyContactName: emergencyContact.name,
+      emergencyContactPhone: emergencyContact.phone,
+      emergencyContactRelationship: emergencyContact.relationship,
+
       photo: photo, // already base64 or URI
+      idImage: idImage,
     };
 
     await db.Loan.create(loanData);

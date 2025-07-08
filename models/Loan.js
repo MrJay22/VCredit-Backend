@@ -13,7 +13,7 @@ module.exports = (sequelize, DataTypes) => {
     phone: {
       type: DataTypes.STRING
     },
-    nin: {
+    bvn: {
       type: DataTypes.STRING
     },
      // Bank Details
@@ -56,8 +56,22 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.STRING
     },
 
+    // emergencyContact
+    emergencyContactName: {
+      type: DataTypes.STRING
+    },
+    emergencyContactPhone: {
+      type: DataTypes.STRING
+    },
+    emergencyContactRelationship: {
+      type: DataTypes.STRING
+    },
+
     // Photo (URL or path)
     photo: {
+      type: DataTypes.STRING
+    },
+    idImage: {
       type: DataTypes.STRING
     },
 
