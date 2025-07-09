@@ -1,12 +1,11 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
+const fs = require('fs');
+const path = require('path');
 const db = require('./models'); // Sequelize models/index.js
 
-const path = require('path');
-
-
-// Route files
+// Routes
 const authRoutes = require('./routes/auth');
 const meRoute = require('./routes/me');
 const walletRoutes = require('./routes/wallet');
@@ -20,16 +19,25 @@ app.use(cors({
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
 }));
+
+// ✅ Needed for multipart/form-data text fields (alongside multer)
+app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 
-// Request Logging
+// Logger
 app.use((req, res, next) => {
-  console.log(`${req.method} ${req.path}`);
+  console.log(`[${req.method}] ${req.path}`);
   next();
 });
 
-// Make uploads folder publicly accessible
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+// ✅ Ensure uploads folder exists
+const uploadsDir = path.join(__dirname, 'uploads');
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir);
+}
+
+// ✅ Serve uploads publicly
+app.use('/uploads', express.static(uploadsDir));
 
 // Routes
 app.use('/auth', authRoutes);
@@ -37,13 +45,11 @@ app.use('/api/loan', loanRoutes);
 app.use('/wallet', walletRoutes);
 app.use('/', meRoute);
 
-// ✅ Sequelize DB connection
+// Start DB and Server
 db.sequelize.authenticate()
   .then(() => {
     console.log('✅ MySQL Connected');
-
-    // Auto-create tables if needed
-    return db.sequelize.sync({ alter: true }); // { force: true } to wipe & recreate
+    return db.sequelize.sync({ alter: true });
   })
   .then(() => {
     const PORT = process.env.PORT || 8083;
