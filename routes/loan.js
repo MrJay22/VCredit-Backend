@@ -225,7 +225,7 @@ router.get('/loan-status', authMiddleware, async (req, res) => {
     });
 
     // If no loan yet, return only form info
-    if (!loan) return res.json({ hasCompletedForm: true, status: 'none' });
+    if (!loan) return res.json({ hasCompletedForm: true, status: 'cleared' });
 
     // ✅ Step 3: Auto-debit overdue loan if needed
     const user = await db.User.findByPk(userId);
