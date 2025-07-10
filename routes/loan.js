@@ -10,6 +10,8 @@ const { Op } = require('sequelize');
 
 const db = require('../models');
 
+const upload = require('../middleware/upload'); // make sure it's correct
+
 
 const multer = require('multer');
 const path = require('path');
