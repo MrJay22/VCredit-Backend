@@ -9,6 +9,7 @@ const { calculateOverdue } = require('../utils/loanUtils');
 const { Op } = require('sequelize');
 
 const db = require('../models');
+const upload = require('../middleware/upload'); // make sure it's correct
 
 
 const multer = require('multer');
@@ -27,6 +28,7 @@ const storage = multer.diskStorage({
 const upload = multer({ storage });
 
 // ✅ Loan Application Route
+
 router.post(
   '/apply',
   authMiddleware,
@@ -35,53 +37,28 @@ router.post(
     { name: 'idImage', maxCount: 1 }
   ]),
   async (req, res) => {
-    console.log('▶️ User from token:', req.user);
-
+    console.log('User from token:', req.user);
     try {
       const userId = req.user.id;
 
-      // Validate files
+      // Parse fields
+      const personalDetails = JSON.parse(req.body.personalDetails);
+      const guarantor1 = JSON.parse(req.body.guarantor1);
+      const guarantor2 = JSON.parse(req.body.guarantor2);
+      const emergencyContact = JSON.parse(req.body.emergencyContact);
+
       const photoFile = req.files?.photo?.[0];
       const idImageFile = req.files?.idImage?.[0];
-      if (!photoFile || !idImageFile) {
-        return res.status(400).json({ message: 'Photo and ID image are required.' });
+
+      if (!personalDetails || !guarantor1 || !guarantor2 || !emergencyContact || !photoFile || !idImageFile) {
+        return res.status(400).json({ message: 'Incomplete application data' });
       }
 
-      // Parse & validate JSON fields
-      let personalDetails, guarantor1, guarantor2, emergencyContact;
-      try {
-        personalDetails = JSON.parse(req.body.personalDetails || '{}');
-        guarantor1 = JSON.parse(req.body.guarantor1 || '{}');
-        guarantor2 = JSON.parse(req.body.guarantor2 || '{}');
-        emergencyContact = JSON.parse(req.body.emergencyContact || '{}');
-      } catch (e) {
-        return res.status(400).json({ message: 'Invalid JSON data.' });
-      }
-
-      const requiredFields = [
-        personalDetails.name, personalDetails.phone, personalDetails.nin, personalDetails.bankName,
-        personalDetails.accountNumber, personalDetails.accountName, personalDetails.occupation,
-        personalDetails.dob, personalDetails.address,
-        guarantor1.name, guarantor1.phone,
-        guarantor2.name, guarantor2.phone,
-        emergencyContact.name, emergencyContact.phone
-      ];
-      if (requiredFields.some(field => !field)) {
-        return res.status(400).json({ message: 'Missing required fields.' });
-      }
-
-      // Check for existing application
       const existing = await db.Loan.findOne({ where: { userId } });
       if (existing) {
-        return res.status(400).json({ message: 'You have already submitted a loan application.' });
+        return res.status(400).json({ message: 'Application already submitted' });
       }
 
-      // Build file URLs
-      const baseUrl = `${req.protocol}://${req.get('host')}`;
-      const photoUrl = `${baseUrl}/uploads/${photoFile.filename}`;
-      const idImageUrl = `${baseUrl}/uploads/${idImageFile.filename}`;
-
-      // Prepare data
       const loanData = {
         userId,
         name: personalDetails.name,
@@ -93,8 +70,6 @@ router.post(
         accountName: personalDetails.accountName,
         dob: personalDetails.dob,
         address: personalDetails.address,
-        photo: photoUrl,
-        idImage: idImageUrl,
         guarantor1Name: guarantor1.name,
         guarantor1Phone: guarantor1.phone,
         guarantor1Relationship: guarantor1.relationship,
@@ -104,20 +79,21 @@ router.post(
         emergencyContactName: emergencyContact.name,
         emergencyContactPhone: emergencyContact.phone,
         emergencyContactRelationship: emergencyContact.relationship,
+        photo: photoFile?.path, // Cloudinary URL
+        idImage: idImageFile?.path, // Cloudinary URL
       };
 
-      // Save to DB
       await db.Loan.create(loanData);
       await db.User.update({ hasApplied: true }, { where: { id: userId } });
 
       res.status(201).json({ message: 'Loan application submitted successfully' });
-
     } catch (err) {
-      console.error('❌ Loan Apply Error:', err);
+      console.error('Loan Apply Error:', err);
       res.status(500).json({ message: 'Server error', error: err.message });
     }
   }
 );
+
 
 // POST /api/loan/upload
 router.post('/upload', upload.fields([
