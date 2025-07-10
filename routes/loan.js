@@ -25,7 +25,6 @@ const storage = multer.diskStorage({
     cb(null, uniqueName);
   }
 });
-const upload = multer({ storage });
 
 // ✅ Loan Application Route
 
