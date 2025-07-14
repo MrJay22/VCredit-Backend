@@ -10,144 +10,146 @@ const { Op } = require('sequelize');
 
 const db = require('../models');
 
-const upload = require('../middleware/upload'); // make sure it's correct
+// ✅ Cleaned-up route for frontend that already uploaded to Cloudinary
+router.post('/apply', authMiddleware, async (req, res) => {
+  console.log('▶️ User from token:', req.user);
 
+  try {
+    const userId = req.user.id;
 
+    const {
+      personalDetails = {},
+      guarantor1 = {},
+      guarantor2 = {},
+      emergencyContact = {},
+    } = req.body;
+
+    const {
+      name,
+      phone,
+      nin,
+      occupation,
+      bankName,
+      accountNumber,
+      accountName,
+      dob,
+      address,
+      photo,
+      idImage,
+    } = personalDetails;
+
+    // Validate fields
+    const requiredFields = [
+      name, phone, nin, occupation, bankName,
+      accountNumber, accountName, dob, address, photo, idImage,
+      guarantor1.name, guarantor1.phone,
+      guarantor2.name, guarantor2.phone,
+      emergencyContact.name, emergencyContact.phone
+    ];
+
+    if (requiredFields.some(field => !field)) {
+      return res.status(400).json({ message: 'Missing required fields.' });
+    }
+
+    // Check if user already applied
+    const existing = await db.Loan.findOne({ where: { userId } });
+    if (existing) {
+      return res.status(400).json({ message: 'You have already submitted a loan application.' });
+    }
+
+    // Save to DB
+    const loanData = {
+      userId,
+      name,
+      phone,
+      bvn: nin,
+      occupation,
+      bankName,
+      accountNumber,
+      accountName,
+      dob,
+      address,
+      photo,     // Cloudinary URL
+      idImage,   // Cloudinary URL
+      guarantor1Name: guarantor1.name,
+      guarantor1Phone: guarantor1.phone,
+      guarantor1Relationship: guarantor1.relationship,
+      guarantor2Name: guarantor2.name,
+      guarantor2Phone: guarantor2.phone,
+      guarantor2Relationship: guarantor2.relationship,
+      emergencyContactName: emergencyContact.name,
+      emergencyContactPhone: emergencyContact.phone,
+      emergencyContactRelationship: emergencyContact.relationship,
+    };
+
+    await db.Loan.create(loanData);
+    await db.User.update({ hasApplied: true }, { where: { id: userId } });
+
+    res.status(201).json({ message: 'Loan application submitted successfully' });
+  } catch (err) {
+    console.error('❌ Loan Apply Error:', err);
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
+// POST /api/loan/upload
 const multer = require('multer');
-const path = require('path');
-
 const cloudinary = require('cloudinary').v2;
+const streamifier = require('streamifier');
 
+// Multer config (in-memory)
+const storage = multer.memoryStorage();
+const upload = multer({ storage });
+
+// Cloudinary config (env vars must be set)
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
   api_key: process.env.CLOUDINARY_API_KEY,
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
-
-
-// ✅ Loan Application Route
+// Upload endpoint
 router.post(
-  '/apply',
-  authMiddleware,
+  '/upload',
   upload.fields([
     { name: 'photo', maxCount: 1 },
-    { name: 'idImage', maxCount: 1 }
+    { name: 'idImage', maxCount: 1 },
   ]),
   async (req, res) => {
-    console.log('▶️ User from token:', req.user);
-
     try {
-      const userId = req.user.id;
+      const photoFile = req.files['photo']?.[0];
+      const idImageFile = req.files['idImage']?.[0];
 
-      // Validate files
-      const photoFile = req.files?.photo?.[0];
-      const idImageFile = req.files?.idImage?.[0];
       if (!photoFile || !idImageFile) {
-        return res.status(400).json({ message: 'Photo and ID image are required.' });
+        return res.status(400).json({ message: 'Both images are required.' });
       }
 
-      // Parse & validate JSON fields
-      let personalDetails, guarantor1, guarantor2, emergencyContact;
-      try {
-        personalDetails = JSON.parse(req.body.personalDetails || '{}');
-        guarantor1 = JSON.parse(req.body.guarantor1 || '{}');
-        guarantor2 = JSON.parse(req.body.guarantor2 || '{}');
-        emergencyContact = JSON.parse(req.body.emergencyContact || '{}');
-      } catch (e) {
-        return res.status(400).json({ message: 'Invalid JSON data.' });
-      }
-
-      const requiredFields = [
-        personalDetails.name, personalDetails.phone, personalDetails.nin, personalDetails.bankName,
-        personalDetails.accountNumber, personalDetails.accountName, personalDetails.occupation,
-        personalDetails.dob, personalDetails.address,
-        guarantor1.name, guarantor1.phone,
-        guarantor2.name, guarantor2.phone,
-        emergencyContact.name, emergencyContact.phone
-      ];
-      if (requiredFields.some(field => !field)) {
-        return res.status(400).json({ message: 'Missing required fields.' });
-      }
-
-      // Check for existing application
-      const existing = await db.Loan.findOne({ where: { userId } });
-      if (existing) {
-        return res.status(400).json({ message: 'You have already submitted a loan application.' });
-      }
-
-      // ✅ Upload images to Cloudinary
-      const uploadToCloudinary = async (filePath) => {
-        const result = await cloudinary.uploader.upload(filePath, {
-          folder: 'vcredit_users',
+      const uploadToCloudinary = (fileBuffer, folder) => {
+        return new Promise((resolve, reject) => {
+          const uploadStream = cloudinary.uploader.upload_stream(
+            { folder },
+            (error, result) => {
+              if (error) reject(error);
+              else resolve(result.secure_url);
+            }
+          );
+          streamifier.createReadStream(fileBuffer).pipe(uploadStream);
         });
-        return result.secure_url;
       };
 
-      const photoUrl = await uploadToCloudinary(photoFile.path);
-      const idImageUrl = await uploadToCloudinary(idImageFile.path);
+      const [photoUrl, idImageUrl] = await Promise.all([
+        uploadToCloudinary(photoFile.buffer, 'vcredit_users'),
+        uploadToCloudinary(idImageFile.buffer, 'vcredit_users'),
+      ]);
 
-      // Prepare data
-      const loanData = {
-        userId,
-        name: personalDetails.name,
-        phone: personalDetails.phone,
-        bvn: personalDetails.nin,
-        occupation: personalDetails.occupation,
-        bankName: personalDetails.bankName,
-        accountNumber: personalDetails.accountNumber,
-        accountName: personalDetails.accountName,
-        dob: personalDetails.dob,
-        address: personalDetails.address,
-        photo: photoUrl,
-        idImage: idImageUrl,
-        guarantor1Name: guarantor1.name,
-        guarantor1Phone: guarantor1.phone,
-        guarantor1Relationship: guarantor1.relationship,
-        guarantor2Name: guarantor2.name,
-        guarantor2Phone: guarantor2.phone,
-        guarantor2Relationship: guarantor2.relationship,
-        emergencyContactName: emergencyContact.name,
-        emergencyContactPhone: emergencyContact.phone,
-        emergencyContactRelationship: emergencyContact.relationship,
-      };
-
-      await db.Loan.create(loanData);
-      await db.User.update({ hasApplied: true }, { where: { id: userId } });
-
-      res.status(201).json({ message: 'Loan application submitted successfully' });
-
+      return res.json({ photoUrl, idImageUrl });
     } catch (err) {
-      console.error('❌ Loan Apply Error:', err);
-      res.status(500).json({ message: 'Server error', error: err.message });
+      console.error('Upload error:', err);
+      res.status(500).json({ message: 'Upload failed', error: err.message });
     }
   }
 );
 
-// POST /api/loan/upload
-router.post('/upload', upload.fields([
-  { name: 'photo', maxCount: 1 },
-  { name: 'idImage', maxCount: 1 },
-]), (req, res) => {
-  try {
-    const photoFile = req.files['photo']?.[0];
-    const idImageFile = req.files['idImage']?.[0];
-
-    if (!photoFile || !idImageFile) {
-      return res.status(400).json({ message: 'Both images are required.' });
-    }
-
-    const baseUrl = `${req.protocol}://${req.get('host')}`;
-
-    return res.json({
-      photoUrl: `${baseUrl}/uploads/${photoFile.filename}`,
-      idImageUrl: `${baseUrl}/uploads/${idImageFile.filename}`,
-    });
-  } catch (err) {
-    console.error('Upload error:', err);
-    res.status(500).json({ message: 'Upload failed' });
-  }
-});
 
 // Initiate
 
