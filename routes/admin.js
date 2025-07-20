@@ -70,4 +70,84 @@ router.get('/users/:id', adminAuth, async (req, res) => {
   }
 });
 
+router.get('/admin/loans', adminAuth, async (req, res) => {
+  const { page = 1, limit = 50, search = '', status = '' } = req.query;
+  const offset = (page - 1) * limit;
+
+  const where = {};
+  if (search) {
+    where.name = { [db.Sequelize.Op.like]: `%${search}%` };
+  }
+  if (status) {
+    where.status = status;
+  }
+
+  try {
+    const { count, rows } = await db.Loan.findAndCountAll({
+      where,
+      limit: parseInt(limit),
+      offset,
+      order: [['createdAt', 'DESC']],
+      include: [{ model: db.User, attributes: ['email'] }],
+    });
+
+    res.json({ data: rows, total: count });
+  } catch (err) {
+    console.error('Admin Get Loans Error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+router.get('/admin/loans/:id', adminAuth, async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const loan = await db.Loan.findByPk(id, {
+      include: [{ model: db.User, attributes: ['email'] }],
+    });
+
+    if (!loan) return res.status(404).json({ error: 'Loan not found' });
+
+    res.json(loan);
+  } catch (err) {
+    console.error('Admin Get Loan Detail Error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+router.post('/admin/loans/:id/approve', adminAuth, async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const loan = await db.Loan.findByPk(id);
+    if (!loan) return res.status(404).json({ error: 'Loan not found' });
+
+    loan.status = 'approved';
+    await loan.save();
+
+    res.json({ message: 'Loan approved' });
+  } catch (err) {
+    console.error('Loan Approval Error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+router.post('/admin/loans/:id/decline', adminAuth, async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const loan = await db.Loan.findByPk(id);
+    if (!loan) return res.status(404).json({ error: 'Loan not found' });
+
+    loan.status = 'declined';
+    await loan.save();
+
+    res.json({ message: 'Loan declined' });
+  } catch (err) {
+    console.error('Loan Decline Error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+
 module.exports = router;
