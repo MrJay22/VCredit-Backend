@@ -10,6 +10,15 @@ const { Op } = require('sequelize');
 
 const db = require('../models');
 
+// Secure Upload Endpoint
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
+const cloudinary = require('../utils/cloudinary');
+
+// Temporary file storage
+const upload = multer({ dest: 'uploads/' });
+
 // ✅ Cleaned-up route for frontend that already uploaded to Cloudinary
 router.post('/apply', authMiddleware, async (req, res) => {
   console.log('▶️ User from token:', req.user);
@@ -92,63 +101,23 @@ router.post('/apply', authMiddleware, async (req, res) => {
   }
 });
 
-// POST /api/loan/upload
-const multer = require('multer');
-const cloudinary = require('cloudinary').v2;
-const streamifier = require('streamifier');
+router.post('/upload', upload.single('file'), async (req, res) => {
+  try {
+    const filePath = req.file.path;
+    const folder = req.body.folder || 'vcredit_users';
 
-// Multer config (in-memory)
-const storage = multer.memoryStorage();
-const upload = multer({ storage });
+    const result = await cloudinary.uploader.upload(filePath, {
+      folder,
+    });
 
-// Cloudinary config (env vars must be set)
-cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET,
-});
+    fs.unlinkSync(filePath); // Clean up local file
 
-// Upload endpoint
-router.post(
-  '/upload',
-  upload.fields([
-    { name: 'photo', maxCount: 1 },
-    { name: 'idImage', maxCount: 1 },
-  ]),
-  async (req, res) => {
-    try {
-      const photoFile = req.files['photo']?.[0];
-      const idImageFile = req.files['idImage']?.[0];
-
-      if (!photoFile || !idImageFile) {
-        return res.status(400).json({ message: 'Both images are required.' });
-      }
-
-      const uploadToCloudinary = (fileBuffer, folder) => {
-        return new Promise((resolve, reject) => {
-          const uploadStream = cloudinary.uploader.upload_stream(
-            { folder },
-            (error, result) => {
-              if (error) reject(error);
-              else resolve(result.secure_url);
-            }
-          );
-          streamifier.createReadStream(fileBuffer).pipe(uploadStream);
-        });
-      };
-
-      const [photoUrl, idImageUrl] = await Promise.all([
-        uploadToCloudinary(photoFile.buffer, 'vcredit_users'),
-        uploadToCloudinary(idImageFile.buffer, 'vcredit_users'),
-      ]);
-
-      return res.json({ photoUrl, idImageUrl });
-    } catch (err) {
-      console.error('Upload error:', err);
-      res.status(500).json({ message: 'Upload failed', error: err.message });
-    }
+    res.json({ url: result.secure_url });
+  } catch (error) {
+    console.error('Cloudinary upload error:', error);
+    res.status(500).json({ message: 'Image upload failed' });
   }
-);
+});
 
 
 // Initiate
@@ -616,6 +585,7 @@ router.post('/decline/:id', adminAuth, async (req, res) => {
     res.status(500).json({ message: 'Server error' });
   }
 });
+
 
 router.get('/account', authMiddleware, async (req, res) => {
   try {

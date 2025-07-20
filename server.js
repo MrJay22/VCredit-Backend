@@ -10,6 +10,8 @@ const authRoutes = require('./routes/auth');
 const meRoute = require('./routes/me');
 const walletRoutes = require('./routes/wallet');
 const loanRoutes = require('./routes/loan'); // All loan endpoints
+const adminRoutes = require('./routes/admin');
+
 
 const app = express();
 
@@ -44,6 +46,7 @@ app.use('/auth', authRoutes);
 app.use('/api/loan', loanRoutes);
 app.use('/wallet', walletRoutes);
 app.use('/', meRoute);
+app.use('/api/admin', adminRoutes);
 
 // Start DB and Server
 db.sequelize.authenticate()
