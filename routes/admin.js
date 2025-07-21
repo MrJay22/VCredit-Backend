@@ -4,17 +4,17 @@ const db = require('../models');
 const { Op } = require('sequelize');
 const adminAuth = require('../middleware/adminAuth');
 
-// 1. GET /admin/users (List users with filters)
+// GET /admin/users (List users with filters and form status)
 router.get('/users', adminAuth, async (req, res) => {
   const { page = 1, limit = 50, search = '', role = '' } = req.query;
   const offset = (page - 1) * limit;
 
   const where = {};
   if (search) {
-    where.name = { [Op.like]: `%${search}%` };
-  }
-  if (role) {
-    where.role = role;
+    where[Op.or] = [
+      { name: { [Op.like]: `%${search}%` } },
+      { phone: { [Op.like]: `%${search}%` } },
+    ];
   }
 
   try {
@@ -22,15 +22,26 @@ router.get('/users', adminAuth, async (req, res) => {
       where,
       limit: parseInt(limit),
       offset,
-      order: [['createdAt', 'DESC']]
+      order: [['createdAt', 'DESC']],
     });
 
-    res.json({ data: rows, total: count });
+    // Enrich users with loan form status
+    const enrichedUsers = await Promise.all(rows.map(async (user) => {
+      const loan = await db.Loan.findOne({ where: { userId: user.id } });
+      return {
+        ...user.toJSON(),
+        formStatus: loan ? loan.status : 'not_submitted',
+      };
+    }));
+
+    res.json({ data: enrichedUsers, total: count });
   } catch (err) {
     console.error('Error fetching users:', err);
     res.status(500).json({ error: 'Server error' });
   }
 });
+
+
 
 // 2. GET /admin/users/:id (Fetch full profile)
 router.get('/users/:id', adminAuth, async (req, res) => {
@@ -43,13 +54,15 @@ router.get('/users/:id', adminAuth, async (req, res) => {
       return res.json({
         id: loanProfile.userId,
         name: loanProfile.name,
-        email: loanProfile.email,
         phone: loanProfile.phone,
         address: loanProfile.address,
         bvn: loanProfile.bvn,
-        nin: loanProfile.nin,
+        status: loanProfile.status,
+        photo: loanProfile.photo,
+        idImage: loanProfile.idImage,
         verified: true,
       });
+
     }
 
     const user = await db.User.findByPk(id);
@@ -58,11 +71,11 @@ router.get('/users/:id', adminAuth, async (req, res) => {
     return res.json({
       id: user.id,
       name: user.name,
-      email: user.email,
       phone: user.phone,
       verified: false,
       note: 'User has not completed loan application',
     });
+
 
   } catch (err) {
     console.error('Admin Get User Error:', err);
