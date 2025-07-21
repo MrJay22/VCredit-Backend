@@ -20,11 +20,10 @@ const app = express();
 
 // Middleware
 app.use(cors({
-  origin: 'http://localhost:5173', // or your deployed frontend domain
-  credentials: true, // allows cookies or credentials headers
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
+  origin: 'http://localhost:5173',
+  credentials: true
 }));
+
 
 
 // ✅ Needed for multipart/form-data text fields (alongside multer)
