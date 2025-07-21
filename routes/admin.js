@@ -4,8 +4,6 @@ const db = require('../models');
 const { Op } = require('sequelize');
 const adminAuth = require('../middleware/adminAuth');
 
-const adminAuth = require('../middleware/adminAuth');
-
 // GET /admin/users (List users with filters and form status)
 router.get('/users', adminAuth, async (req, res) => {
   const { page = 1, limit = 50, search = '', role = '' } = req.query;
