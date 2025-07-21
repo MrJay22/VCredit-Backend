@@ -16,9 +16,7 @@ router.post('/signup', async (req, res) => {
       return res.status(400).json({ message: 'Admin already exists' });
     }
 
-    const hashed = await bcrypt.hash(password, 10);
-
-    const admin = await Admin.create({ name, email, password: hashed });
+    const admin = await Admin.create({ name, email, password }); // 🔥 no hashing here
 
     const token = jwt.sign({ id: admin.id, role: 'admin' }, JWT_SECRET, { expiresIn: '7d' });
     res.status(201).json({ admin, token });
@@ -27,6 +25,7 @@ router.post('/signup', async (req, res) => {
     res.status(500).json({ message: 'Internal server error' });
   }
 });
+
 
 // POST /auth/admin/login
 router.post('/login', async (req, res) => {
