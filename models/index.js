@@ -21,6 +21,8 @@ const Loan = require('./Loan')(sequelize, DataTypes);
 const Repayment = require('./Repayment')(sequelize, DataTypes);
 const ManualPayment = require('./ManualPayment')(sequelize, DataTypes);
 const AdminSettings = require('./AdminSetting')(sequelize, DataTypes);
+const Admin= require('./Admin')(sequelize, DataTypes)
+
 
 // Define associations
 
@@ -57,7 +59,8 @@ const db = {
   Loan,
   Repayment,
   ManualPayment,
-  AdminSettings
+  AdminSettings,
+  Admin
 };
 
 module.exports = db;

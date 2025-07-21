@@ -12,6 +12,9 @@ const walletRoutes = require('./routes/wallet');
 const loanRoutes = require('./routes/loan'); // All loan endpoints
 const adminRoutes = require('./routes/admin');
 
+const adminAuthRoutes = require('./routes/adminAuth');
+
+
 
 const app = express();
 
@@ -44,6 +47,7 @@ if (!fs.existsSync(uploadsDir)) {
 app.use('/uploads', express.static(uploadsDir));
 
 // Routes
+app.use('/api/admin/auth', adminAuthRoutes);
 app.use('/auth', authRoutes);
 app.use('/api/loan', loanRoutes);
 app.use('/wallet', walletRoutes);
