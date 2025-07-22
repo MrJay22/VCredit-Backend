@@ -83,14 +83,18 @@ router.get('/users/:id', adminAuth, async (req, res) => {
   }
 });
 
+
 router.get('/admin/loans', adminAuth, async (req, res) => {
   const { page = 1, limit = 50, search = '', status = '' } = req.query;
   const offset = (page - 1) * limit;
 
   const where = {};
+  const userWhere = {};
+
   if (search) {
-    where.name = { [db.Sequelize.Op.like]: `%${search}%` };
+    userWhere.name = { [db.Sequelize.Op.like]: `%${search}%` };
   }
+
   if (status) {
     where.status = status;
   }
@@ -98,10 +102,16 @@ router.get('/admin/loans', adminAuth, async (req, res) => {
   try {
     const { count, rows } = await db.Loan.findAndCountAll({
       where,
+      include: [
+        {
+          model: db.User,
+          attributes: ['name'],
+          where: userWhere,
+        }
+      ],
       limit: parseInt(limit),
       offset,
       order: [['createdAt', 'DESC']],
-      include: [{ model: db.User, attributes: ['email'] }],
     });
 
     res.json({ data: rows, total: count });
@@ -111,12 +121,19 @@ router.get('/admin/loans', adminAuth, async (req, res) => {
   }
 });
 
+
+
 router.get('/admin/loans/:id', adminAuth, async (req, res) => {
   const { id } = req.params;
 
   try {
     const loan = await db.Loan.findByPk(id, {
-      include: [{ model: db.User, attributes: ['email'] }],
+      include: [
+        {
+          model: db.User,
+          attributes: ['name'], // Only include name, no email
+        }
+      ],
     });
 
     if (!loan) return res.status(404).json({ error: 'Loan not found' });
@@ -128,39 +145,58 @@ router.get('/admin/loans/:id', adminAuth, async (req, res) => {
   }
 });
 
+
+
 router.post('/admin/loans/:id/approve', adminAuth, async (req, res) => {
   const { id } = req.params;
 
   try {
-    const loan = await db.Loan.findByPk(id);
+    const loan = await db.Loan.findByPk(id, {
+      include: [{ model: db.User, attributes: ['name'] }],
+    });
     if (!loan) return res.status(404).json({ error: 'Loan not found' });
 
     loan.status = 'approved';
     await loan.save();
 
-    res.json({ message: 'Loan approved' });
+    res.json({
+      message: 'Loan approved',
+      user: loan.User?.name || 'N/A',
+      loanId: loan.id,
+      status: loan.status,
+    });
   } catch (err) {
     console.error('Loan Approval Error:', err);
     res.status(500).json({ error: 'Server error' });
   }
 });
 
+
+
 router.post('/admin/loans/:id/decline', adminAuth, async (req, res) => {
   const { id } = req.params;
 
   try {
-    const loan = await db.Loan.findByPk(id);
+    const loan = await db.Loan.findByPk(id, {
+      include: [{ model: db.User, attributes: ['name'] }],
+    });
     if (!loan) return res.status(404).json({ error: 'Loan not found' });
 
     loan.status = 'declined';
     await loan.save();
 
-    res.json({ message: 'Loan declined' });
+    res.json({
+      message: 'Loan declined',
+      user: loan.User?.name || 'N/A',
+      loanId: loan.id,
+      status: loan.status,
+    });
   } catch (err) {
     console.error('Loan Decline Error:', err);
     res.status(500).json({ error: 'Server error' });
   }
 });
+
 
 
 module.exports = router;
