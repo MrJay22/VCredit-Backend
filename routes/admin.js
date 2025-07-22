@@ -101,8 +101,8 @@ router.get('/loans', adminAuth, async (req, res) => {
   const userWhere = search
     ? {
         [db.Sequelize.Op.or]: [
-          { name: { [db.Sequelize.Op.Like]: `%${search}%` } },
-          { phone: { [db.Sequelize.Op.Like]: `%${search}%` } },
+          { name: { [db.Sequelize.Op.like]: `%${search}%` } },
+          { phone: { [db.Sequelize.Op.like]: `%${search}%` } },
         ],
       }
     : undefined;
