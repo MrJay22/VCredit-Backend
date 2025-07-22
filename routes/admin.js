@@ -209,8 +209,139 @@ router.post('/loans/:id/clear', adminAuth, async (req, res) => {
   }
 });
 
+// routes/admin/repayment.js
+router.get('/repayments', adminAuth, async (req, res) => {
+  const {
+    page = 1,
+    limit = 20,
+    search = '', // optional: search by user name or phone
+  } = req.query;
+
+  const offset = (page - 1) * limit;
+
+  const userWhere = search
+    ? {
+        [db.Sequelize.Op.or]: [
+          { name: { [db.Sequelize.Op.like]: `%${search}%` } },
+          { phone: { [db.Sequelize.Op.like]: `%${search}%` } },
+        ],
+      }
+    : undefined;
+
+  try {
+    const { count, rows } = await db.Repayment.findAndCountAll({
+      offset: parseInt(offset),
+      limit: parseInt(limit),
+      order: [['createdAt', 'DESC']],
+      include: [
+        {
+          model: db.User,
+          attributes: ['name', 'phone'],
+          where: userWhere,
+        },
+      ],
+    });
+
+    res.json({ data: rows, total: count });
+  } catch (err) {
+    console.error('Admin Repayment History Error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
 
 
+// GET /admin/manual-payments
+router.get('/manual-payments', adminAuth, async (req, res) => {
+  const {
+    page = 1,
+    limit = 20,
+    status = '', // optional filter (pending, approved, rejected)
+    search = ''  // search by user name or sender name
+  } = req.query;
 
+  const offset = (page - 1) * limit;
+
+  try {
+    const where = {};
+    if (status) {
+      where.status = status;
+    }
+
+    const userWhere = search
+      ? {
+          [Op.or]: [
+            { name: { [Op.like]: `%${search}%` } },
+          ],
+        }
+      : undefined;
+
+    const include = [
+      {
+        model: User,
+        attributes: ['name', 'phone'],
+        where: userWhere,
+      },
+    ];
+
+    if (!search) delete include[0].where;
+
+    const { count, rows } = await ManualPayment.findAndCountAll({
+      where,
+      include,
+      order: [['createdAt', 'DESC']],
+      offset: parseInt(offset),
+      limit: parseInt(limit),
+    });
+
+    res.json({ data: rows, total: count });
+  } catch (err) {
+    console.error('Admin Manual Payments Error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Approve Manual Payment
+router.post('/manual-repayments/:id/approve', adminAuth, async (req, res) => {
+  try {
+    const manualPayment = await db.ManualPayment.findByPk(req.params.id);
+    if (!manualPayment) return res.status(404).json({ error: 'Manual payment not found' });
+
+    if (manualPayment.status !== 'pending') {
+      return res.status(400).json({ error: 'Payment is already processed' });
+    }
+
+    // Optional: update related loan balance here if needed
+
+    manualPayment.status = 'approved';
+    manualPayment.updatedAt = new Date();
+    await manualPayment.save();
+
+    res.json({ message: 'Manual payment approved', data: manualPayment });
+  } catch (err) {
+    console.error('Approve Manual Payment Error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Reject Manual Payment
+router.post('/manual-repayments/:id/reject', adminAuth, async (req, res) => {
+  try {
+    const manualPayment = await db.ManualPayment.findByPk(req.params.id);
+    if (!manualPayment) return res.status(404).json({ error: 'Manual payment not found' });
+
+    if (manualPayment.status !== 'pending') {
+      return res.status(400).json({ error: 'Payment is already processed' });
+    }
+
+    manualPayment.status = 'rejected';
+    manualPayment.updatedAt = new Date();
+    await manualPayment.save();
+
+    res.json({ message: 'Manual payment rejected', data: manualPayment });
+  } catch (err) {
+    console.error('Reject Manual Payment Error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
 
 module.exports = router;
