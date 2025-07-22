@@ -84,87 +84,72 @@ router.get('/users/:id', adminAuth, async (req, res) => {
 });
 
 
-router.get('/admin/loans', adminAuth, async (req, res) => {
-  const { page = 1, limit = 50, search = '', status = '' } = req.query;
+router.get('/loans', adminAuth, async (req, res) => {
+  const { page = 1, limit = 20, search = '', status = '' } = req.query;
   const offset = (page - 1) * limit;
 
   const where = {};
-  const userWhere = {};
+  if (status) where.status = status;
 
-  if (search) {
-    userWhere.name = { [db.Sequelize.Op.like]: `%${search}%` };
-  }
-
-  if (status) {
-    where.status = status;
-  }
+  const userWhere = search ? {
+    [db.Sequelize.Op.or]: [
+      { name: { [db.Sequelize.Op.iLike]: `%${search}%` } },
+      { phone: { [db.Sequelize.Op.iLike]: `%${search}%` } },
+    ]
+  } : undefined;
 
   try {
-    const { count, rows } = await db.Loan.findAndCountAll({
+    const { count, rows } = await db.LoanTransaction.findAndCountAll({
       where,
+      offset,
+      limit: parseInt(limit),
+      order: [['createdAt', 'DESC']],
       include: [
         {
           model: db.User,
-          attributes: ['name'],
+          attributes: ['name', 'phone'],
           where: userWhere,
         }
-      ],
-      limit: parseInt(limit),
-      offset,
-      order: [['createdAt', 'DESC']],
+      ]
     });
 
     res.json({ data: rows, total: count });
   } catch (err) {
-    console.error('Admin Get Loans Error:', err);
+    console.error('Admin Get Loan Transactions Error:', err);
     res.status(500).json({ error: 'Server error' });
   }
 });
 
 
 
-router.get('/admin/loans/:id', adminAuth, async (req, res) => {
-  const { id } = req.params;
 
+router.get('/loans/:id', adminAuth, async (req, res) => {
   try {
-    const loan = await db.Loan.findByPk(id, {
-      include: [
-        {
-          model: db.User,
-          attributes: ['name'], // Only include name, no email
-        }
-      ],
+    const loan = await db.LoanTransaction.findByPk(req.params.id, {
+      include: [{ model: db.User, attributes: ['name', 'phone'] }],
     });
 
     if (!loan) return res.status(404).json({ error: 'Loan not found' });
 
     res.json(loan);
   } catch (err) {
-    console.error('Admin Get Loan Detail Error:', err);
+    console.error('Loan Fetch Error:', err);
     res.status(500).json({ error: 'Server error' });
   }
 });
 
 
 
-router.post('/admin/loans/:id/approve', adminAuth, async (req, res) => {
-  const { id } = req.params;
 
+router.post('/loans/:id/approve', adminAuth, async (req, res) => {
   try {
-    const loan = await db.Loan.findByPk(id, {
-      include: [{ model: db.User, attributes: ['name'] }],
-    });
+    const loan = await db.LoanTransaction.findByPk(req.params.id);
     if (!loan) return res.status(404).json({ error: 'Loan not found' });
 
     loan.status = 'approved';
     await loan.save();
 
-    res.json({
-      message: 'Loan approved',
-      user: loan.User?.name || 'N/A',
-      loanId: loan.id,
-      status: loan.status,
-    });
+    res.json({ message: 'Loan approved' });
   } catch (err) {
     console.error('Loan Approval Error:', err);
     res.status(500).json({ error: 'Server error' });
@@ -173,29 +158,22 @@ router.post('/admin/loans/:id/approve', adminAuth, async (req, res) => {
 
 
 
-router.post('/admin/loans/:id/decline', adminAuth, async (req, res) => {
-  const { id } = req.params;
 
+router.post('/loans/:id/decline', adminAuth, async (req, res) => {
   try {
-    const loan = await db.Loan.findByPk(id, {
-      include: [{ model: db.User, attributes: ['name'] }],
-    });
+    const loan = await db.LoanTransaction.findByPk(req.params.id);
     if (!loan) return res.status(404).json({ error: 'Loan not found' });
 
     loan.status = 'declined';
     await loan.save();
 
-    res.json({
-      message: 'Loan declined',
-      user: loan.User?.name || 'N/A',
-      loanId: loan.id,
-      status: loan.status,
-    });
+    res.json({ message: 'Loan declined' });
   } catch (err) {
     console.error('Loan Decline Error:', err);
     res.status(500).json({ error: 'Server error' });
   }
 });
+
 
 
 
