@@ -85,32 +85,41 @@ router.get('/users/:id', adminAuth, async (req, res) => {
 
 
 router.get('/loans', adminAuth, async (req, res) => {
-  const { page = 1, limit = 20, search = '', status = '' } = req.query;
-  const offset = (page - 1) * limit;
+  const {
+    page = 1,
+    limit = 20,
+    search = '',
+    status = '',
+    sortBy = 'createdAt',
+    sortOrder = 'DESC',
+  } = req.query;
 
+  const offset = (page - 1) * limit;
   const where = {};
   if (status) where.status = status;
 
-  const userWhere = search ? {
-    [db.Sequelize.Op.or]: [
-      { name: { [db.Sequelize.Op.iLike]: `%${search}%` } },
-      { phone: { [db.Sequelize.Op.iLike]: `%${search}%` } },
-    ]
-  } : undefined;
+  const userWhere = search
+    ? {
+        [db.Sequelize.Op.or]: [
+          { name: { [db.Sequelize.Op.iLike]: `%${search}%` } },
+          { phone: { [db.Sequelize.Op.iLike]: `%${search}%` } },
+        ],
+      }
+    : undefined;
 
   try {
     const { count, rows } = await db.LoanTransaction.findAndCountAll({
       where,
-      offset,
+      offset: parseInt(offset),
       limit: parseInt(limit),
-      order: [['createdAt', 'DESC']],
+      order: [[sortBy, sortOrder]],
       include: [
         {
           model: db.User,
           attributes: ['name', 'phone'],
           where: userWhere,
-        }
-      ]
+        },
+      ],
     });
 
     res.json({ data: rows, total: count });
@@ -119,6 +128,7 @@ router.get('/loans', adminAuth, async (req, res) => {
     res.status(500).json({ error: 'Server error' });
   }
 });
+
 
 
 
@@ -146,7 +156,7 @@ router.post('/loans/:id/approve', adminAuth, async (req, res) => {
     const loan = await db.LoanTransaction.findByPk(req.params.id);
     if (!loan) return res.status(404).json({ error: 'Loan not found' });
 
-    loan.status = 'approved';
+    loan.status = 'running';
     await loan.save();
 
     res.json({ message: 'Loan approved' });
