@@ -184,6 +184,32 @@ router.post('/loans/:id/decline', adminAuth, async (req, res) => {
   }
 });
 
+// Mark a loan as cleared
+router.post('/loans/:id/clear', adminAuth, async (req, res) => {
+  const loanId = req.params.id;
+
+  try {
+    const loan = await db.LoanTransaction.findByPk(loanId);
+    if (!loan) return res.status(404).json({ error: 'Loan not found' });
+
+    if (loan.status === 'cleared') {
+      return res.status(400).json({ error: 'Loan already cleared' });
+    }
+
+    loan.status = 'cleared';
+    loan.balance = 0;
+    loan.clearedAt = new Date();
+
+    await loan.save();
+
+    res.json({ message: 'Loan marked as cleared', loan });
+  } catch (err) {
+    console.error('Admin Clear Loan Error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+
 
 
 
