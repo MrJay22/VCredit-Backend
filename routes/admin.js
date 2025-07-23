@@ -46,6 +46,9 @@ router.get('/dashboard', adminAuth, async (req, res) => {
       limit: 5
     });
 
+    const usersWithLoan = await Loan.count({ col: 'userId', distinct: true });
+    const usersWithoutLoan = totalUsers - usersWithLoan;
+
     const monthlyRaw = await Repayment.findAll({
       attributes: [
         [fn('MONTHNAME', col('createdAt')), 'month'],
@@ -70,6 +73,7 @@ router.get('/dashboard', adminAuth, async (req, res) => {
         totalUsers,
         verifiedUsers,
         unverifiedUsers,
+        usersWithoutLoan,
         submittedForms,
         activeLoans,
         pendingApprovals,
@@ -87,8 +91,6 @@ router.get('/dashboard', adminAuth, async (req, res) => {
     res.status(500).json({ error: 'Internal server error' });
   }
 });
-
-
 
 // GET /admin/users (List users with filters and form status)
 router.get('/users', adminAuth, async (req, res) => {
