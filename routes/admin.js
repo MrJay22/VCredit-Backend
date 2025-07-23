@@ -1,7 +1,8 @@
 const express = require('express');
 const router = express.Router();
 const adminAuth = require('../middleware/adminAuth');
-const { User, Loan, LoanTransaction, Repayment } = require('../models');
+const db = require('../models'); // ✅ full Sequelize models object
+const { User, Loan, LoanTransaction, Repayment } = db;
 const { Op, fn, col, Sequelize } = require('sequelize');
 
 // GET /api/admin/dashboard
