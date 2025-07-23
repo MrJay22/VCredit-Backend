@@ -9,8 +9,16 @@ const { Op, fn, col, Sequelize } = require('sequelize');
 router.get('/dashboard', adminAuth, async (req, res) => {
   try {
     const totalUsers = await User.count();
-    const verifiedUsers = await User.count({ where: { verified: true } });
-    const unverifiedUsers = await User.count({ where: { verified: false } });
+
+    // Users who have never completed the loan form
+    const usersWithoutLoan = await User.count({
+      where: {
+        id: {
+          [Op.notIn]: Sequelize.literal('(SELECT DISTINCT userId FROM Loans)')
+        }
+      }
+    });
+
     const submittedForms = await Loan.count({ where: { status: 'pending' } });
     const activeLoans = await Loan.count({ where: { status: 'running' } });
     const pendingApprovals = await Loan.count({ where: { status: 'pending' } });
@@ -46,9 +54,6 @@ router.get('/dashboard', adminAuth, async (req, res) => {
       limit: 5
     });
 
-    const usersWithLoan = await Loan.count({ col: 'userId', distinct: true });
-    const usersWithoutLoan = totalUsers - usersWithLoan;
-
     const monthlyRaw = await Repayment.findAll({
       attributes: [
         [fn('MONTHNAME', col('createdAt')), 'month'],
@@ -71,8 +76,6 @@ router.get('/dashboard', adminAuth, async (req, res) => {
     res.json({
       stats: {
         totalUsers,
-        verifiedUsers,
-        unverifiedUsers,
         usersWithoutLoan,
         submittedForms,
         activeLoans,
