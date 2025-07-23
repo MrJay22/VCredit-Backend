@@ -1,9 +1,75 @@
 const express = require('express');
 const router = express.Router();
-const db = require('../models');
-const { Op } = require('sequelize');
 const adminAuth = require('../middleware/adminAuth');
-const { ManualPayment, User } = db;
+const { User, Loan, LoanTransaction, Repayment, ManualPayment } = require('../models');
+const { Op, fn, col, literal, Sequelize } = require('sequelize');
+
+
+// [GET] /api/admin/dashboard
+router.get('/dashboard', async (req, res) => {
+  try {
+    // User stats
+    const totalUsers = await User.count();
+    const verifiedUsers = await User.count({ where: { isVerified: true } });
+    const unverifiedUsers = await User.count({ where: { isVerified: false } });
+
+    // Loan stats
+    const formPending = await Loan.count({ where: { status: 'pending' } });
+    const activeLoans = await LoanTransaction.count({ where: { status: 'running' } });
+    const pendingApprovals = await Loan.count({ where: { status: 'pending' } });
+
+    // Monthly revenue for current month
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    const monthlyRevenue = await Repayment.sum('amount', {
+      where: {
+        createdAt: {
+          [Op.between]: [startOfMonth, endOfMonth],
+        },
+      },
+    });
+
+    // Revenue by month (last 6 months)
+    const monthlyRaw = await Repayment.findAll({
+      attributes: [
+        [fn('MONTHNAME', col('createdAt')), 'month'],
+        [fn('SUM', col('amount')), 'total'],
+      ],
+      group: [fn('MONTH', col('createdAt'))],
+      order: [[fn('MONTH', col('createdAt')), 'ASC']],
+      limit: 6,
+    });
+
+    const monthlyLabels = monthlyRaw.map(item => item.get('month'));
+    const monthlyRevenueData = monthlyRaw.map(item => Number(item.get('total')));
+
+    // Recent repayments
+    const recentRepayments = await Repayment.findAll({
+      include: [{ model: User }],
+      order: [['createdAt', 'DESC']],
+      limit: 5,
+    });
+
+    res.json({
+      stats: {
+        totalUsers,
+        verifiedUsers,
+        unverifiedUsers,
+        formPending,
+        activeLoans,
+        pendingApprovals,
+        monthlyRevenue: monthlyRevenue || 0,
+        monthlyLabels,
+        monthlyRevenue: monthlyRevenueData,
+      },
+      recentRepayments,
+    });
+  } catch (err) {
+    console.error('Dashboard stats error:', err);
+    res.status(500).json({ error: 'Something went wrong' });
+  }
+});
 
 // GET /admin/users (List users with filters and form status)
 router.get('/users', adminAuth, async (req, res) => {
@@ -207,11 +273,19 @@ router.get('/repayments', adminAuth, async (req, res) => {
   const {
     page = 1,
     limit = 20,
-    search = '',
+    search = '', // optional: search by user name or phone
   } = req.query;
 
   const offset = (page - 1) * limit;
-  const Sequelize = db.Sequelize;
+
+  const userWhere = search
+    ? {
+        [db.Sequelize.Op.or]: [
+          { name: { [db.Sequelize.Op.like]: `%${search}%` } },
+          { phone: { [db.Sequelize.Op.like]: `%${search}%` } },
+        ],
+      }
+    : undefined;
 
   try {
     const { count, rows } = await db.Repayment.findAndCountAll({
@@ -222,25 +296,7 @@ router.get('/repayments', adminAuth, async (req, res) => {
         {
           model: db.User,
           attributes: ['name', 'phone'],
-          required: false,
-          where: search
-            ? {
-                [Sequelize.Op.or]: [
-                  { name: { [Sequelize.Op.like]: `%${search}%` } },
-                  { phone: { [Sequelize.Op.like]: `%${search}%` } },
-                ],
-              }
-            : undefined,
-        },
-        {
-          model: db.Loan,
-          attributes: ['loanId'],
-          required: false,
-          where: search
-            ? {
-                loanId: { [Sequelize.Op.like]: `%${search}%` },
-              }
-            : undefined,
+          where: userWhere,
         },
       ],
     });
@@ -252,42 +308,46 @@ router.get('/repayments', adminAuth, async (req, res) => {
   }
 });
 
-
 // GET /admin/manual-payments
-router.get('/manual-payments', adminAuth, async (req, res) => {
-  const { search } = req.query;
+router.get('/manual-repayments', adminAuth, async (req, res) => {
+  const { page = 1, limit = 20, search = '', status = '' } = req.query;
+  const offset = (page - 1) * limit;
+
+  const where = {};
+  if (status) where.status = status;
+
+  const userWhere = search
+    ? {
+        [Op.or]: [
+          { name: { [Op.like]: `%${search}%` } },
+          { phone: { [Op.like]: `%${search}%` } },
+        ],
+      }
+    : undefined;
 
   try {
-    const whereClause = {};
-
-    const payments = await db.ManualPayment.findAll({
-      where: whereClause,
+    const { count, rows } = await ManualPayment.findAndCountAll({
+      where,
+      offset: parseInt(offset),
+      limit: parseInt(limit),
+      order: [['createdAt', 'DESC']],
       include: [
         {
-          model: db.User,
-          attributes: ['id', 'name', 'phone']
+          model: User,
+          attributes: ['name', 'phone'],
+          where: userWhere,
+          required: !!userWhere,
         },
-        {
-          model: db.LoanTransaction,
-          attributes: ['loanId'],
-          where: search
-            ? {
-                loanId: {
-                  [db.Sequelize.Op.like]: `%${search}%`
-                }
-              }
-            : undefined
-        }
       ],
-      order: [['createdAt', 'DESC']]
     });
 
-    res.json(payments);
+    res.json({ data: rows, total: count });
   } catch (err) {
     console.error('Admin Manual Payments Error:', err);
-    res.status(500).json({ error: 'Failed to fetch manual payments' });
+    res.status(500).json({ error: 'Server error' });
   }
 });
+
 
 // Approve Manual Payment
 router.post('/manual-repayments/:id/approve', adminAuth, async (req, res) => {
