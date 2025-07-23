@@ -3,6 +3,8 @@ const router = express.Router();
 const db = require('../models');
 const { Op } = require('sequelize');
 const adminAuth = require('../middleware/adminAuth');
+const db = require('../models');
+const { ManualPayment, User } = db;
 
 // GET /admin/users (List users with filters and form status)
 router.get('/users', adminAuth, async (req, res) => {
@@ -130,9 +132,6 @@ router.get('/loans', adminAuth, async (req, res) => {
 });
 
 
-
-
-
 router.get('/loans/:id', adminAuth, async (req, res) => {
   try {
     const loan = await db.LoanTransaction.findByPk(req.params.id, {
@@ -148,9 +147,6 @@ router.get('/loans/:id', adminAuth, async (req, res) => {
   }
 });
 
-
-
-
 router.post('/loans/:id/approve', adminAuth, async (req, res) => {
   try {
     const loan = await db.LoanTransaction.findByPk(req.params.id);
@@ -165,8 +161,6 @@ router.post('/loans/:id/approve', adminAuth, async (req, res) => {
     res.status(500).json({ error: 'Server error' });
   }
 });
-
-
 
 
 router.post('/loans/:id/decline', adminAuth, async (req, res) => {
@@ -249,48 +243,37 @@ router.get('/repayments', adminAuth, async (req, res) => {
   }
 });
 
-
 // GET /admin/manual-payments
-router.get('/manual-payments', adminAuth, async (req, res) => {
-  const {
-    page = 1,
-    limit = 20,
-    status = '', // optional filter (pending, approved, rejected)
-    search = ''  // search by user name or sender name
-  } = req.query;
-
+router.get('/manual-repayments', adminAuth, async (req, res) => {
+  const { page = 1, limit = 20, search = '', status = '' } = req.query;
   const offset = (page - 1) * limit;
 
+  const where = {};
+  if (status) where.status = status;
+
+  const userWhere = search
+    ? {
+        [Op.or]: [
+          { name: { [Op.like]: `%${search}%` } },
+          { phone: { [Op.like]: `%${search}%` } },
+        ],
+      }
+    : undefined;
+
   try {
-    const where = {};
-    if (status) {
-      where.status = status;
-    }
-
-    const userWhere = search
-      ? {
-          [Op.or]: [
-            { name: { [Op.like]: `%${search}%` } },
-          ],
-        }
-      : undefined;
-
-    const include = [
-      {
-        model: User,
-        attributes: ['name', 'phone'],
-        where: userWhere,
-      },
-    ];
-
-    if (!search) delete include[0].where;
-
     const { count, rows } = await ManualPayment.findAndCountAll({
       where,
-      include,
-      order: [['createdAt', 'DESC']],
       offset: parseInt(offset),
       limit: parseInt(limit),
+      order: [['createdAt', 'DESC']],
+      include: [
+        {
+          model: User,
+          attributes: ['name', 'phone'],
+          where: userWhere,
+          required: !!userWhere,
+        },
+      ],
     });
 
     res.json({ data: rows, total: count });
@@ -299,6 +282,7 @@ router.get('/manual-payments', adminAuth, async (req, res) => {
     res.status(500).json({ error: 'Server error' });
   }
 });
+
 
 // Approve Manual Payment
 router.post('/manual-repayments/:id/approve', adminAuth, async (req, res) => {
