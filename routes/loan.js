@@ -1,3 +1,6 @@
+
+
+
 // routes/loan.js (Fully Converted to Sequelize)
 
 const express = require('express');
@@ -10,14 +13,34 @@ const { Op } = require('sequelize');
 
 const db = require('../models');
 
+
 // Secure Upload Endpoint
 const multer = require('multer');
-const path = require('path');
 const fs = require('fs');
-const cloudinary = require('../utils/cloudinary');
+const path = require('path');
+const cloudinary = require('cloudinary').v2;
 
-// Temporary file storage
-const upload = multer({ dest: 'uploads/' });
+// Setup disk storage
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const uploadPath = 'uploads/';
+    fs.mkdirSync(uploadPath, { recursive: true });
+    cb(null, uploadPath);
+  },
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname);
+    const filename = `${file.fieldname}-${Date.now()}${ext}`;
+    cb(null, filename);
+  }
+});
+
+const upload = multer({ storage });
+
+// 👇 Accept two named fields: 'photo' and 'idImage'
+const cpUpload = upload.fields([
+  { name: 'photo', maxCount: 1 },
+  { name: 'idImage', maxCount: 1 }
+]);
 
 // ✅ Cleaned-up route for frontend that already uploaded to Cloudinary
 router.post('/apply', authMiddleware, async (req, res) => {
@@ -101,23 +124,35 @@ router.post('/apply', authMiddleware, async (req, res) => {
   }
 });
 
-router.post('/upload', upload.single('file'), async (req, res) => {
+
+router.post('/upload', cpUpload, async (req, res) => {
   try {
-    const filePath = req.file.path;
+    const files = req.files;
+    if (!files || !files.photo || !files.idImage) {
+      return res.status(400).json({ message: 'Both photo and idImage are required.' });
+    }
+
     const folder = req.body.folder || 'vcredit_users';
 
-    const result = await cloudinary.uploader.upload(filePath, {
-      folder,
+    // Upload both files to Cloudinary
+    const photoResult = await cloudinary.uploader.upload(files.photo[0].path, { folder });
+    const idImageResult = await cloudinary.uploader.upload(files.idImage[0].path, { folder });
+
+    // Clean up local files
+    fs.unlinkSync(files.photo[0].path);
+    fs.unlinkSync(files.idImage[0].path);
+
+    // Return Cloudinary URLs
+    res.json({
+      photoUrl: photoResult.secure_url,
+      idImageUrl: idImageResult.secure_url
     });
-
-    fs.unlinkSync(filePath); // Clean up local file
-
-    res.json({ url: result.secure_url });
   } catch (error) {
     console.error('Cloudinary upload error:', error);
     res.status(500).json({ message: 'Image upload failed' });
   }
 });
+
 
 
 // Initiate
