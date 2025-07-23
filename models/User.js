@@ -1,8 +1,21 @@
-// models/user.js
+const { Model } = require('sequelize');
 const bcrypt = require('bcryptjs');
 
 module.exports = (sequelize, DataTypes) => {
-  const User = sequelize.define('User', {
+  class User extends Model {
+    async comparePassword(enteredPassword) {
+      return await bcrypt.compare(enteredPassword, this.password);
+    }
+
+    static associate(models) {
+      // Define associations here if needed
+      // For example:
+      // User.hasMany(models.Loan, { foreignKey: 'userId' });
+      // User.hasMany(models.Repayment, { foreignKey: 'userId' });
+    }
+  }
+
+  User.init({
     name: {
       type: DataTypes.STRING
     },
@@ -32,6 +45,8 @@ module.exports = (sequelize, DataTypes) => {
       defaultValue: true
     }
   }, {
+    sequelize,
+    modelName: 'User',
     timestamps: true,
     hooks: {
       beforeCreate: async (user) => {
@@ -46,11 +61,6 @@ module.exports = (sequelize, DataTypes) => {
       }
     }
   });
-
-  // Method to compare password
-  User.prototype.comparePassword = async function (enteredPassword) {
-    return await bcrypt.compare(enteredPassword, this.password);
-  };
 
   return User;
 };

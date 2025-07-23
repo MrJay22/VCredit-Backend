@@ -1,82 +1,51 @@
-// models/loan.js
+const { Model } = require('sequelize');
+
 module.exports = (sequelize, DataTypes) => {
-  const Loan = sequelize.define('Loan', {
+  class Loan extends Model {
+    static associate(models) {
+      // Define associations here if needed
+      // Loan.belongsTo(models.User, { foreignKey: 'userId' });
+    }
+  }
+
+  Loan.init({
     userId: {
       type: DataTypes.INTEGER,
       allowNull: false
     },
 
     // Personal Details
-    name: {
-      type: DataTypes.STRING
-    },
-    phone: {
-      type: DataTypes.STRING
-    },
-    bvn: {
-      type: DataTypes.STRING
-    },
-    occupation: {
-      type: DataTypes.STRING
-    },
-     // Bank Details
-    bankName: {
-      type: DataTypes.STRING
-    },
-    accountNumber: {
-      type: DataTypes.STRING
-    },
-    accountName: {
-      type: DataTypes.STRING
-    },
-    
-    dob: {
-      type: DataTypes.STRING
-    },
-    address: {
-      type: DataTypes.STRING
-    },
+    name: DataTypes.STRING,
+    phone: DataTypes.STRING,
+    bvn: DataTypes.STRING,
+    occupation: DataTypes.STRING,
+
+    // Bank Details
+    bankName: DataTypes.STRING,
+    accountNumber: DataTypes.STRING,
+    accountName: DataTypes.STRING,
+
+    dob: DataTypes.STRING,
+    address: DataTypes.STRING,
 
     // Guarantor 1
-    guarantor1Name: {
-      type: DataTypes.STRING
-    },
-    guarantor1Phone: {
-      type: DataTypes.STRING
-    },
-    guarantor1Relationship: {
-      type: DataTypes.STRING
-    },
+    guarantor1Name: DataTypes.STRING,
+    guarantor1Phone: DataTypes.STRING,
+    guarantor1Relationship: DataTypes.STRING,
 
     // Guarantor 2
-    guarantor2Name: {
-      type: DataTypes.STRING
-    },
-    guarantor2Phone: {
-      type: DataTypes.STRING
-    },
-    guarantor2Relationship: {
-      type: DataTypes.STRING
-    },
+    guarantor2Name: DataTypes.STRING,
+    guarantor2Phone: DataTypes.STRING,
+    guarantor2Relationship: DataTypes.STRING,
 
-    // emergencyContact
-    emergencyContactName: {
-      type: DataTypes.STRING
-    },
-    emergencyContactPhone: {
-      type: DataTypes.STRING
-    },
-    emergencyContactRelationship: {
-      type: DataTypes.STRING
-    },
+    // Emergency Contact
+    emergencyContactName: DataTypes.STRING,
+    emergencyContactPhone: DataTypes.STRING,
+    emergencyContactRelationship: DataTypes.STRING,
 
-    // Photo (URL or path)
-    photo: {
-      type: DataTypes.STRING
-    },
-    idImage: {
-      type: DataTypes.STRING
-    },
+    // Documents
+    photo: DataTypes.STRING,
+    idImage: DataTypes.STRING,
 
     status: {
       type: DataTypes.ENUM('pending', 'reviewed', 'rejected', 'approved'),
@@ -87,8 +56,11 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.DATE,
       defaultValue: DataTypes.NOW
     }
+
   }, {
-    timestamps: false // You already define createdAt manually
+    sequelize,
+    modelName: 'Loan',
+    timestamps: false
   });
 
   return Loan;

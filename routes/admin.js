@@ -20,8 +20,9 @@ router.get('/dashboard', adminAuth, async (req, res) => {
     });
 
     const submittedForms = await Loan.count({ where: { status: 'pending' } });
-    const activeLoans = await Loan.count({ where: { status: 'running' } });
     const pendingApprovals = await Loan.count({ where: { status: 'pending' } });
+
+    const activeLoans = await LoanTransaction.count({ where: { status: 'running' } });
 
     const now = new Date();
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -37,7 +38,8 @@ router.get('/dashboard', adminAuth, async (req, res) => {
 
     const approvedLoans = await Loan.count({ where: { status: 'approved' } });
     const totalLoans = await Loan.count();
-    const overdueLoans = await Loan.count({
+
+    const overdueLoans = await LoanTransaction.count({
       where: {
         status: 'running',
         dueDate: { [Op.lt]: new Date() }
@@ -47,7 +49,7 @@ router.get('/dashboard', adminAuth, async (req, res) => {
     const approvalRate = totalLoans > 0 ? ((approvedLoans / totalLoans) * 100).toFixed(1) : '0.0';
     const overdueRate = activeLoans > 0 ? ((overdueLoans / activeLoans) * 100).toFixed(1) : '0.0';
 
-    const topDebtors = await Loan.findAll({
+    const topDebtors = await LoanTransaction.findAll({
       where: { status: 'running' },
       include: [{ model: User, attributes: ['name', 'phone'] }],
       order: [['amount', 'DESC']],
@@ -94,6 +96,7 @@ router.get('/dashboard', adminAuth, async (req, res) => {
     res.status(500).json({ error: 'Internal server error' });
   }
 });
+
 
 // GET /admin/users (List users with filters and form status)
 router.get('/users', adminAuth, async (req, res) => {

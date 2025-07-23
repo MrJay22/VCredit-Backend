@@ -1,6 +1,15 @@
-// models/repayment.js
+const { Model } = require('sequelize');
+
 module.exports = (sequelize, DataTypes) => {
-  const Repayment = sequelize.define('Repayment', {
+  class Repayment extends Model {
+    static associate(models) {
+      // Define associations here if needed
+      // Repayment.belongsTo(models.User, { foreignKey: 'userId' });
+      // Repayment.belongsTo(models.LoanTransaction, { foreignKey: 'loanId' });
+    }
+  }
+
+  Repayment.init({
     userId: {
       type: DataTypes.INTEGER,
       allowNull: false
@@ -26,7 +35,9 @@ module.exports = (sequelize, DataTypes) => {
       defaultValue: DataTypes.NOW
     }
   }, {
-    timestamps: false // you're manually defining createdAt
+    sequelize,
+    modelName: 'Repayment',
+    timestamps: false
   });
 
   return Repayment;

@@ -1,6 +1,15 @@
-// models/loanTransaction.js
+const { Model } = require('sequelize');
+
 module.exports = (sequelize, DataTypes) => {
-  const LoanTransaction = sequelize.define('LoanTransaction', {
+  class LoanTransaction extends Model {
+    static associate(models) {
+      // Define associations if needed
+      // LoanTransaction.belongsTo(models.User, { foreignKey: 'userId' });
+      // LoanTransaction.hasMany(models.Repayment, { foreignKey: 'loanId' });
+    }
+  }
+
+  LoanTransaction.init({
     userId: {
       type: DataTypes.INTEGER,
       allowNull: false
@@ -52,11 +61,13 @@ module.exports = (sequelize, DataTypes) => {
     clearedAt: {
       type: DataTypes.DATE
     }
+  }, {
+    sequelize,
+    modelName: 'LoanTransaction'
   });
 
-  // Automatically generate short loanId before creation
   LoanTransaction.beforeCreate(async (loan, options) => {
-    const randomId = 'LN' + Math.floor(1000 + Math.random() * 9000); // e.g. LN1234
+    const randomId = 'LN' + Math.floor(1000 + Math.random() * 9000);
     loan.loanId = randomId;
   });
 

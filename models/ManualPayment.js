@@ -1,6 +1,15 @@
-// models/manualPayment.js
+const { Model } = require('sequelize');
+
 module.exports = (sequelize, DataTypes) => {
-  const ManualPayment = sequelize.define('ManualPayment', {
+  class ManualPayment extends Model {
+    static associate(models) {
+      // Define associations here if needed
+      // ManualPayment.belongsTo(models.User, { foreignKey: 'userId' });
+      // ManualPayment.belongsTo(models.LoanTransaction, { foreignKey: 'loanId' });
+    }
+  }
+
+  ManualPayment.init({
     userId: {
       type: DataTypes.INTEGER,
       allowNull: false
@@ -33,7 +42,9 @@ module.exports = (sequelize, DataTypes) => {
       defaultValue: DataTypes.NOW
     }
   }, {
-    timestamps: false // We're manually managing createdAt & updatedAt
+    sequelize,
+    modelName: 'ManualPayment',
+    timestamps: false
   });
 
   return ManualPayment;
