@@ -4,6 +4,7 @@ const adminAuth = require('../middleware/adminAuth');
 const db = require('../models'); // ✅ full Sequelize models object
 const { User, Loan, LoanTransaction, Repayment } = db;
 const { Op, fn, col, Sequelize } = require('sequelize');
+const adminLoanController = require('../controllers/adminLoanController');
 
 // GET /api/admin/dashboard
 router.get('/dashboard', adminAuth, async (req, res) => {
@@ -176,6 +177,15 @@ router.get('/users/:id', adminAuth, async (req, res) => {
     res.status(500).json({ error: 'Server error' });
   }
 });
+
+// Get loan by userId
+router.get('/:userId', adminLoanController.getLoanByUserId);
+
+// Approve loan
+router.post('/:userId/approve', adminLoanController.approveLoan);
+
+// Decline loan
+router.post('/:userId/decline', adminLoanController.declineLoan);
 
 
 router.get('/loans', adminAuth, async (req, res) => {
