@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const adminAuth = require('../middleware/adminAuth');
 const db = require('../models'); // ✅ full Sequelize models object
-const { User, Loan, LoanTransaction, Repayment } = db;
+const { User, Loan, LoanTransaction, Repayment, ManualPayment  } = db;
 const { Op, fn, col, Sequelize } = require('sequelize');
 
 // GET /api/admin/dashboard
