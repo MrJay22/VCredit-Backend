@@ -207,19 +207,11 @@ router.get('/repayments', adminAuth, async (req, res) => {
   const {
     page = 1,
     limit = 20,
-    search = '', // optional: search by user name or phone
+    search = '',
   } = req.query;
 
   const offset = (page - 1) * limit;
-
-  const userWhere = search
-    ? {
-        [db.Sequelize.Op.or]: [
-          { name: { [db.Sequelize.Op.like]: `%${search}%` } },
-          { phone: { [db.Sequelize.Op.like]: `%${search}%` } },
-        ],
-      }
-    : undefined;
+  const Sequelize = db.Sequelize;
 
   try {
     const { count, rows } = await db.Repayment.findAndCountAll({
@@ -230,7 +222,25 @@ router.get('/repayments', adminAuth, async (req, res) => {
         {
           model: db.User,
           attributes: ['name', 'phone'],
-          where: userWhere,
+          required: false,
+          where: search
+            ? {
+                [Sequelize.Op.or]: [
+                  { name: { [Sequelize.Op.like]: `%${search}%` } },
+                  { phone: { [Sequelize.Op.like]: `%${search}%` } },
+                ],
+              }
+            : undefined,
+        },
+        {
+          model: db.Loan,
+          attributes: ['loanId'],
+          required: false,
+          where: search
+            ? {
+                loanId: { [Sequelize.Op.like]: `%${search}%` },
+              }
+            : undefined,
         },
       ],
     });
@@ -242,46 +252,42 @@ router.get('/repayments', adminAuth, async (req, res) => {
   }
 });
 
+
 // GET /admin/manual-payments
-router.get('/manual-repayments', adminAuth, async (req, res) => {
-  const { page = 1, limit = 20, search = '', status = '' } = req.query;
-  const offset = (page - 1) * limit;
-
-  const where = {};
-  if (status) where.status = status;
-
-  const userWhere = search
-    ? {
-        [Op.or]: [
-          { name: { [Op.like]: `%${search}%` } },
-          { phone: { [Op.like]: `%${search}%` } },
-        ],
-      }
-    : undefined;
+router.get('/manual-payments', adminAuth, async (req, res) => {
+  const { search } = req.query;
 
   try {
-    const { count, rows } = await ManualPayment.findAndCountAll({
-      where,
-      offset: parseInt(offset),
-      limit: parseInt(limit),
-      order: [['createdAt', 'DESC']],
+    const whereClause = {};
+
+    const payments = await db.ManualPayment.findAll({
+      where: whereClause,
       include: [
         {
-          model: User,
-          attributes: ['name', 'phone'],
-          where: userWhere,
-          required: !!userWhere,
+          model: db.User,
+          attributes: ['id', 'name', 'phone']
         },
+        {
+          model: db.LoanTransaction,
+          attributes: ['loanId'],
+          where: search
+            ? {
+                loanId: {
+                  [db.Sequelize.Op.like]: `%${search}%`
+                }
+              }
+            : undefined
+        }
       ],
+      order: [['createdAt', 'DESC']]
     });
 
-    res.json({ data: rows, total: count });
+    res.json(payments);
   } catch (err) {
     console.error('Admin Manual Payments Error:', err);
-    res.status(500).json({ error: 'Server error' });
+    res.status(500).json({ error: 'Failed to fetch manual payments' });
   }
 });
-
 
 // Approve Manual Payment
 router.post('/manual-repayments/:id/approve', adminAuth, async (req, res) => {
