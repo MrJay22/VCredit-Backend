@@ -4,7 +4,6 @@ const adminAuth = require('../middleware/adminAuth');
 const db = require('../models'); // ✅ full Sequelize models object
 const { User, Loan, LoanTransaction, Repayment } = db;
 const { Op, fn, col, Sequelize } = require('sequelize');
-const adminLoanController = require('../controllers/adminLoanController');
 
 // GET /api/admin/dashboard
 router.get('/dashboard', adminAuth, async (req, res) => {
@@ -136,8 +135,6 @@ router.get('/users', adminAuth, async (req, res) => {
   }
 });
 
-
-
 // 2. GET /admin/users/:id (Fetch full profile)
 router.get('/users/:id', adminAuth, async (req, res) => {
   const { id } = req.params;
@@ -155,6 +152,21 @@ router.get('/users/:id', adminAuth, async (req, res) => {
         status: loanProfile.status,
         photo: loanProfile.photo,
         idImage: loanProfile.idImage,
+        occupation: loanProfile.occupation,
+        bankName: loanProfile.bankName,
+        accountNumber: loanProfile.accountNumber,
+        accountName: loanProfile.accountName,
+        dob: loanProfile.dob,
+        guarantor1Name: loanProfile.guarantor1Name,
+        guarantor1Phone: loanProfile.guarantor1Phone,
+        guarantor1Relationship: loanProfile.guarantor1Relationship,
+        guarantor2Name: loanProfile.guarantor2Name,
+        guarantor2Phone: loanProfile.guarantor2Phone,
+        guarantor2Relationship: loanProfile.guarantor2Relationship,
+        emergencyContactName: loanProfile.emergencyContactName,
+        emergencyContactName: loanProfile.emergencyContactName,
+        emergencyContactPhone: loanProfile.emergencyContactPhone,
+        emergencyContactRelationship: loanProfile.emergencyContactRelationship,
         verified: true,
       });
 
@@ -178,15 +190,35 @@ router.get('/users/:id', adminAuth, async (req, res) => {
   }
 });
 
-// Get loan by userId
-router.get('/:userId', adminLoanController.getLoanByUserId);
+router.post('/users/:id/approve', adminAuth, async (req, res) => {
+  try {
+    const user = await db.Loan.findByPk(req.params.id);
+    if (!user) return res.status(404).json({ error: 'User not found' });
 
-// Approve loan
-router.post('/:userId/approve', adminLoanController.approveLoan);
+    user.status = 'approved';
+    await user.save();
 
-// Decline loan
-router.post('/:userId/decline', adminLoanController.declineLoan);
+    res.json({ message: 'User approved' });
+  } catch (err) {
+    console.error('User Approval Error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
 
+router.post('/users/:id/decline', adminAuth, async (req, res) => {
+  try {
+    const user = await db.Loan.findByPk(req.params.id);
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
+    user.status = 'declined';
+    await user.save();
+
+    res.json({ message: 'User declined' });
+  } catch (err) {
+    console.error('User Decline Error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
 
 router.get('/loans', adminAuth, async (req, res) => {
   const {
