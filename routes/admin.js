@@ -1,54 +1,67 @@
 const express = require('express');
 const router = express.Router();
 const adminAuth = require('../middleware/adminAuth');
-const { User, Loan, LoanTransaction, Repayment, ManualPayment } = require('../models');
-const { Op, fn, col, literal, Sequelize } = require('sequelize');
+const { User, Loan, LoanTransaction, Repayment } = require('../../models');
+const { Op, fn, col, Sequelize } = require('sequelize');
 
-
-// [GET] /api/admin/dashboard
-router.get('/dashboard', async (req, res) => {
+// GET /api/admin/dashboard
+router.get('/dashboard', adminAuth, async (req, res) => {
   try {
-    // User stats
     const totalUsers = await User.count();
-    const verifiedUsers = await User.count({ where: { isVerified: true } });
-    const unverifiedUsers = await User.count({ where: { isVerified: false } });
-
-    // Loan stats
-    const formPending = await Loan.count({ where: { status: 'pending' } });
-    const activeLoans = await LoanTransaction.count({ where: { status: 'running' } });
+    const verifiedUsers = await User.count({ where: { verified: true } });
+    const unverifiedUsers = await User.count({ where: { verified: false } });
+    const submittedForms = await Loan.count({ where: { status: 'pending' } });
+    const activeLoans = await Loan.count({ where: { status: 'running' } });
     const pendingApprovals = await Loan.count({ where: { status: 'pending' } });
 
-    // Monthly revenue for current month
     const now = new Date();
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
     const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+
     const monthlyRevenue = await Repayment.sum('amount', {
       where: {
         createdAt: {
-          [Op.between]: [startOfMonth, endOfMonth],
-        },
-      },
+          [Op.between]: [startOfMonth, endOfMonth]
+        }
+      }
     });
 
-    // Revenue by month (last 6 months)
+    const approvedLoans = await Loan.count({ where: { status: 'approved' } });
+    const totalLoans = await Loan.count();
+    const overdueLoans = await Loan.count({
+      where: {
+        status: 'running',
+        dueDate: { [Op.lt]: new Date() }
+      }
+    });
+
+    const approvalRate = totalLoans > 0 ? ((approvedLoans / totalLoans) * 100).toFixed(1) : '0.0';
+    const overdueRate = activeLoans > 0 ? ((overdueLoans / activeLoans) * 100).toFixed(1) : '0.0';
+
+    const topDebtors = await Loan.findAll({
+      where: { status: 'running' },
+      include: [{ model: User, attributes: ['name', 'phone'] }],
+      order: [['amount', 'DESC']],
+      limit: 5
+    });
+
     const monthlyRaw = await Repayment.findAll({
       attributes: [
         [fn('MONTHNAME', col('createdAt')), 'month'],
-        [fn('SUM', col('amount')), 'total'],
+        [fn('SUM', col('amount')), 'total']
       ],
       group: [fn('MONTH', col('createdAt'))],
       order: [[fn('MONTH', col('createdAt')), 'ASC']],
-      limit: 6,
+      limit: 6
     });
 
     const monthlyLabels = monthlyRaw.map(item => item.get('month'));
     const monthlyRevenueData = monthlyRaw.map(item => Number(item.get('total')));
 
-    // Recent repayments
     const recentRepayments = await Repayment.findAll({
       include: [{ model: User }],
       order: [['createdAt', 'DESC']],
-      limit: 5,
+      limit: 5
     });
 
     res.json({
@@ -56,20 +69,25 @@ router.get('/dashboard', async (req, res) => {
         totalUsers,
         verifiedUsers,
         unverifiedUsers,
-        formPending,
+        submittedForms,
         activeLoans,
         pendingApprovals,
         monthlyRevenue: monthlyRevenue || 0,
+        approvalRate,
+        overdueRate,
+        topDebtors,
         monthlyLabels,
-        monthlyRevenue: monthlyRevenueData,
+        monthlyRevenueData
       },
-      recentRepayments,
+      recentRepayments
     });
   } catch (err) {
-    console.error('Dashboard stats error:', err);
-    res.status(500).json({ error: 'Something went wrong' });
+    console.error('Dashboard error:', err);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
+
+
 
 // GET /admin/users (List users with filters and form status)
 router.get('/users', adminAuth, async (req, res) => {
