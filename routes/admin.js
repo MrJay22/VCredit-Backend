@@ -3,7 +3,6 @@ const router = express.Router();
 const db = require('../models');
 const { Op } = require('sequelize');
 const adminAuth = require('../middleware/adminAuth');
-const db = require('../models');
 const { ManualPayment, User } = db;
 
 // GET /admin/users (List users with filters and form status)
