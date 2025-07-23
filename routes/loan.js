@@ -1,6 +1,3 @@
-
-
-
 // routes/loan.js (Fully Converted to Sequelize)
 
 const express = require('express');
@@ -16,9 +13,9 @@ const db = require('../models');
 
 // Secure Upload Endpoint
 const multer = require('multer');
-const fs = require('fs');
 const path = require('path');
-const cloudinary = require('cloudinary').v2;
+const fs = require('fs');
+const cloudinary = require('../utils/cloudinary');
 
 // Setup disk storage
 const storage = multer.diskStorage({
@@ -41,6 +38,7 @@ const cpUpload = upload.fields([
   { name: 'photo', maxCount: 1 },
   { name: 'idImage', maxCount: 1 }
 ]);
+
 
 // ✅ Cleaned-up route for frontend that already uploaded to Cloudinary
 router.post('/apply', authMiddleware, async (req, res) => {
