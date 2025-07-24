@@ -190,33 +190,56 @@ router.get('/users/:id', adminAuth, async (req, res) => {
   }
 });
 
-router.post('/users/:id/approve', adminAuth, async (req, res) => {
+// Approve loan/user
+router.put('/users/:id/approve', async (req, res) => {
   try {
-    const user = await db.Loan.findByPk(req.params.id);
-    if (!user) return res.status(404).json({ error: 'User not found' });
+    const user = await Loan.findByPk(req.params.id);
+    if (!user) return res.status(404).json({ message: 'User not found' });
 
     user.status = 'approved';
     await user.save();
 
-    res.json({ message: 'User approved' });
+    res.json({ message: 'User approved', loan: user });
   } catch (err) {
-    console.error('User Approval Error:', err);
-    res.status(500).json({ error: 'Server error' });
+    console.error('[APPROVE ERROR]', err);
+    res.status(500).json({ message: 'Server error' });
   }
 });
 
-router.post('/users/:id/decline', adminAuth, async (req, res) => {
+// Decline loan/user
+router.put('/users/:id/decline', async (req, res) => {
   try {
-    const user = await db.Loan.findByPk(req.params.id);
-    if (!user) return res.status(404).json({ error: 'User not found' });
+    const user = await Loan.findByPk(req.params.id);
+    if (!user) return res.status(404).json({ message: 'Loan not found' });
 
     user.status = 'declined';
     await user.save();
 
-    res.json({ message: 'User declined' });
+    res.json({ message: 'User declined', loan: user });
   } catch (err) {
-    console.error('User Decline Error:', err);
-    res.status(500).json({ error: 'Server error' });
+    console.error('[DECLINE ERROR]', err);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// PATCH /api/admin/users/:id/eligible-amount
+router.patch('/users/:id/eligible-amount', adminAuth, async (req, res) => {
+  const { id } = req.params;
+  const { eligibleAmount } = req.body;
+
+  try {
+    const loanUser = await User.findByPk(id);
+    if (!loanUser) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    loanUser.eligibleAmount = eligibleAmount;
+    await loanUser.save();
+
+    res.json({ message: 'Eligible amount updated', user: loanUser });
+  } catch (err) {
+    console.error('Error updating eligible amount:', err);
+    res.status(500).json({ message: 'Internal server error' });
   }
 });
 
