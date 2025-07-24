@@ -191,7 +191,7 @@ router.get('/users/:id', adminAuth, async (req, res) => {
 });
 
 // Approve loan/user
-router.put('/users/:id/approve', async (req, res) => {
+router.put('/users/:id/approve', adminAuth, async (req, res) => {
   try {
     const user = await Loan.findByPk(req.params.id);
     if (!user) return res.status(404).json({ message: 'User not found' });
@@ -207,7 +207,7 @@ router.put('/users/:id/approve', async (req, res) => {
 });
 
 // Decline loan/user
-router.put('/users/:id/decline', async (req, res) => {
+router.put('/users/:id/decline', adminAuth, async (req, res) => {
   try {
     const user = await Loan.findByPk(req.params.id);
     if (!user) return res.status(404).json({ message: 'Loan not found' });
@@ -240,6 +240,28 @@ router.patch('/users/:id/eligible-amount', adminAuth, async (req, res) => {
   } catch (err) {
     console.error('Error updating eligible amount:', err);
     res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
+
+// Inside routes/admin.js
+router.put('/users/:id/edit', adminAuth, async (req, res) => {
+  const { eligibleAmount } = req.body;
+
+  if (eligibleAmount == null)
+    return res.status(400).json({ message: 'Eligible amount is required.' });
+
+  try {
+    const user = await User.findByPk(req.params.id); // User model stores eligibleAmount
+    if (!user) return res.status(404).json({ message: 'User not found.' });
+
+    user.eligibleAmount = eligibleAmount;
+    await user.save();
+
+    res.json({ message: 'Eligible amount updated successfully.', user });
+  } catch (err) {
+    console.error('Update failed:', err);
+    res.status(500).json({ message: 'Server error' });
   }
 });
 
